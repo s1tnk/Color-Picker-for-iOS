@@ -516,7 +516,9 @@
 	UITouch* touch = [touches anyObject];
     if (is_dragging_) {
         is_drag_end_ = TRUE;
-        [NSTimer scheduledTimerWithTimeInterval:1.0/30.0 target:self selector:@selector(Update:) userInfo:nil repeats:FALSE];
+        
+        [NSTimer scheduledTimerWithTimeInterval:1.0/60.0 target:self selector:@selector(Update:) userInfo:nil repeats:FALSE];
+        [NSTimer scheduledTimerWithTimeInterval:1.0/20.0 target:self selector:@selector(setNeedsDisplay20FPS) userInfo:nil repeats:FALSE];
     }else{
         if ([touch tapCount] == 1) {
             is_tapped_ = TRUE;
