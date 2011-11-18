@@ -29,6 +29,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <sys/time.h>
 #import "hayashi311_color_util.h"
+#import "brightness_cursor.h"
 
 typedef struct timeval timeval;
 
@@ -70,12 +71,15 @@ typedef struct timeval timeval;
     bool show_color_cursor_;
     
     timeval last_update_time;
-    timeval time_interval;
+    timeval last_draw_time;
+    timeval time_interval_20fps;
+    timeval time_interval_60fps;
     
     CGImageRef color_map_image;
     bool is_need_redraw_color_map;
     
     CGImageRef brightness_picker_shadow_image;
+    BrightnessCursor* brightness_cursor;
 }
 
 // デフォルトカラーで初期化
@@ -84,13 +88,8 @@ typedef struct timeval timeval;
 // 現在選択している色をRGBで返す
 - (Hayashi311RGBColor)RGBColor;
 
-/*
- * releaseを呼ぶ時にはちょっと注意が必要です。
- * 内部でLoopを呼んでいるのでこれを止めないとdeallocが呼ばれない。
- * releaseの前にBeforeDeallocを呼び出して下さい。
- */
 
-- (void)BeforeDealloc;
+- (void)BeforeDealloc; // 必要ありません。後方互換性のため
 
 @property (getter = BrightnessLowerLimit, setter = setBrightnessLowerLimit:) float BrightnessLowerLimit;
 @property (getter = SaturationUpperLimit, setter = setSaturationUpperLimit:) float SaturationUpperLimit;

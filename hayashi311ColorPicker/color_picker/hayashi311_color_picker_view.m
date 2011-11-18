@@ -31,9 +31,14 @@
 @interface Hayashi311ColorPickerView()
 - (void)initColorCursor;
 - (void)Update:(id)sender;
+- (void)UpdateBrightnessCursor;
+- (void)setNeedsDisplay20FPS;
 - (void)ClearInput;
 - (void)SetCurrentTouchPointInView:(UITouch *)touch;
 - (void)CreateCacheImage;
+
+
+
 @end
 
 @implementation Hayashi311ColorPickerView
@@ -79,12 +84,18 @@
         
         
         gettimeofday(&last_update_time, NULL);
+        gettimeofday(&last_draw_time, NULL);
         
-        time_interval.tv_sec = 0.0;
-        time_interval.tv_usec = 1000000.0/20.0;
+        time_interval_20fps.tv_sec = 0.0;
+        time_interval_20fps.tv_usec = 1000000.0/20.0;
+        time_interval_60fps.tv_sec = 0.0;
+        time_interval_60fps.tv_usec = 1000000.0/60.0;
         is_need_redraw_color_map = TRUE;
         color_map_image = NULL;
         
+        brightness_cursor = [[BrightnessCursor alloc] initWithFrame:CGRectMake(brightness_picker_frame_.origin.x - 10.0f, brightness_picker_frame_.origin.y + brightness_picker_frame_.size.height/2.0f - 10.0f, 20.0f, 20.0f)];
+        [self addSubview:brightness_cursor];
+        [self UpdateBrightnessCursor];
         [self CreateCacheImage];
         
     }
@@ -125,10 +136,11 @@
 }
 
 - (void)Update:(id)sender{
+    // アップデートは60FPS
     timeval now,diff;
     gettimeofday(&now, NULL);
     timersub(&now, &last_update_time, &diff);
-    if (timercmp(&diff, &time_interval, >)) {
+    if (timercmp(&diff, &time_interval_60fps, >)) {
         last_update_time = now;
     }else{
         return;
@@ -138,7 +150,7 @@
         CGPoint touch_position = active_touch_position_;
         
         if(!show_color_cursor_){
-            [self setNeedsDisplay];
+            [self setNeedsDisplay20FPS];
             show_color_cursor_ = TRUE;
         }
         
@@ -170,7 +182,7 @@
                 color_cursor_position_.x = (int)(new_position.x/pixel_size_) * pixel_size_  + color_map_frame_.origin.x + pixel_size_/2.0f;
                 color_cursor_position_.y = (int)(new_position.y/pixel_size_) * pixel_size_ + color_map_frame_.origin.y + pixel_size_/2.0f;
                 
-                [self setNeedsDisplay];
+                [self setNeedsDisplay20FPS];
             }
         }else if(CGRectContainsPoint(brightness_picker_touch_frame_,touch_position)){
             if (CGRectContainsPoint(brightness_picker_frame_,touch_position)) {
@@ -185,10 +197,35 @@
                 }
             }
             is_need_redraw_color_map = TRUE;
-            [self setNeedsDisplay];
+            
+            [self UpdateBrightnessCursor];
+            [self setNeedsDisplay20FPS];
         }
     }
     [self ClearInput];
+}
+
+- (void)UpdateBrightnessCursor{
+    float tappoint_x = (1.0f - (current_hsv_color_.v - brightness_lower_limit_)/(1.0f - brightness_lower_limit_)) * brightness_picker_frame_.size.width + brightness_picker_frame_.origin.x;
+    
+    brightness_cursor.transform = CGAffineTransformMakeTranslation(tappoint_x - brightness_picker_frame_.origin.x, 0.0f);
+    /*
+    CGRect rect_ellipse = CGRectMake( tappoint_x - pointer_size,brightness_picker_frame_.origin.y + brightness_picker_frame_.size.height/2.0f - pointer_size, pointer_size*2, pointer_size*2);
+    [brightness_cursor setFrame:rect_ellipse];
+     */
+}
+
+- (void)setNeedsDisplay20FPS{
+    // 描画は20FPS
+    timeval now,diff;
+    gettimeofday(&now, NULL);
+    timersub(&now, &last_draw_time, &diff);
+    if (timercmp(&diff, &time_interval_20fps, >)) {
+        last_draw_time = now;
+        [self setNeedsDisplay];
+    }else{
+        return;
+    }
 }
 
 - (void)CreateCacheImage
@@ -265,7 +302,9 @@
     // 輝度の内側の影
     CGContextDrawImage(context, brightness_picker_shadow_frame_, brightness_picker_shadow_image);
     
+    
     // 現在の輝度を示す
+    /*
     float pointer_size = 5.0f;
     float tappoint_x = (1.0f - (current_hsv_color_.v - brightness_lower_limit_)/(1.0f - brightness_lower_limit_)) * brightness_picker_frame_.size.width + brightness_picker_frame_.origin.x;
     
@@ -274,11 +313,11 @@
     CGContextSetShadow(context, CGSizeMake(0.0f, 1.0f), 5.0f);
     CGContextAddEllipseInRect(context, rect_ellipse);
     CGContextDrawPath(context, kCGPathFill);
+    */
+    //CGContextRestoreGState(context);
     
-    CGContextRestoreGState(context);
     
-    
-    CGContextSaveGState(context);
+    //CGContextSaveGState(context);
     
     CGContextRestoreGState(context);
     
@@ -419,9 +458,10 @@
         CGRect cursor_rect = CGRectMake(color_cursor_position_.x - cursor_size/2.0f -1.0f, color_cursor_position_.y - cursor_size/2.0f -1.0f, cursor_size, cursor_size);
         
         CGContextSaveGState(context);
-        CGContextAddRect(context, cursor_back_rect);
+        //CGContextAddRect(context, cursor_back_rect);
+        Hayashi311SetRoundedRectanglePath(context, cursor_back_rect, 2.0f);
         [[UIColor whiteColor] set];
-        CGContextSetShadow(context, CGSizeMake(0.0f, 1.0f), 3.0f);
+        CGContextSetShadow(context, CGSizeMake(0.0f, 1.0f), 2.0f);
         CGContextDrawPath(context, kCGPathFill);
         CGContextRestoreGState(context);
         
@@ -470,18 +510,14 @@
         [self SetCurrentTouchPointInView:[touches anyObject]];
     }
     [self Update:self];
-    
-    [self setNeedsDisplay];
 }
 
 -(void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event{
 	UITouch* touch = [touches anyObject];
-    
     if (is_dragging_) {
         is_drag_end_ = TRUE;
-        
-        [NSTimer scheduledTimerWithTimeInterval:1.0/20.0 target:self selector:@selector(Update:) userInfo:nil repeats:FALSE];
-}else{
+        [NSTimer scheduledTimerWithTimeInterval:1.0/30.0 target:self selector:@selector(Update:) userInfo:nil repeats:FALSE];
+    }else{
         if ([touch tapCount] == 1) {
             is_tapped_ = TRUE;
         }
@@ -508,7 +544,7 @@
         CGImageRelease(color_map_image);
     }
     CGImageRelease(brightness_picker_shadow_image);
-    
+    [brightness_cursor release];
     [super dealloc];
 }
 

@@ -19,6 +19,7 @@
 		DA877C6F145299C100A0754C /* hayashi311_color_util.m in Sources */ = {isa = PBXBuildFile; fileRef = DA877C6E145299C100A0754C /* hayashi311_color_util.m */; };
 		DA877C731452A1C500A0754C /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA877C721452A1C500A0754C /* QuartzCore.framework */; };
 		DA877C761452ABE800A0754C /* hayashi311_cg_util.m in Sources */ = {isa = PBXBuildFile; fileRef = DA877C751452ABE800A0754C /* hayashi311_cg_util.m */; };
+		DAB04D51147633ED00494324 /* brightness_cursor.m in Sources */ = {isa = PBXBuildFile; fileRef = DAB04D50147633ED00494324 /* brightness_cursor.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +44,8 @@
 		DA877C721452A1C500A0754C /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		DA877C741452ABE800A0754C /* hayashi311_cg_util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hayashi311_cg_util.h; sourceTree = "<group>"; };
 		DA877C751452ABE800A0754C /* hayashi311_cg_util.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = hayashi311_cg_util.m; sourceTree = "<group>"; };
+		DAB04D4F147633EC00494324 /* brightness_cursor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = brightness_cursor.h; sourceTree = "<group>"; };
+		DAB04D50147633ED00494324 /* brightness_cursor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = brightness_cursor.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -120,6 +123,8 @@
 				DA877C6E145299C100A0754C /* hayashi311_color_util.m */,
 				DA877C741452ABE800A0754C /* hayashi311_cg_util.h */,
 				DA877C751452ABE800A0754C /* hayashi311_cg_util.m */,
+				DAB04D4F147633EC00494324 /* brightness_cursor.h */,
+				DAB04D50147633ED00494324 /* brightness_cursor.m */,
 			);
 			path = color_picker;
 			sourceTree = "<group>";
@@ -204,6 +209,7 @@
 				DA877C6D145299B600A0754C /* hayashi311_color_picker_view.m in Sources */,
 				DA877C6F145299C100A0754C /* hayashi311_color_util.m in Sources */,
 				DA877C761452ABE800A0754C /* hayashi311_cg_util.m in Sources */,
+				DAB04D51147633ED00494324 /* brightness_cursor.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -305,6 +311,7 @@
 				DA877C4714527BD000A0754C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
