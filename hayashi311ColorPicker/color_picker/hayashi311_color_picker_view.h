@@ -27,7 +27,10 @@
 
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
+#import <sys/time.h>
 #import "hayashi311_color_util.h"
+
+typedef struct timeval timeval;
 
 @interface Hayashi311ColorPickerView : UIControl{
     
@@ -65,6 +68,14 @@
     float saturation_upper_limit_;
     
     bool show_color_cursor_;
+    
+    timeval last_update_time;
+    timeval time_interval;
+    
+    CGImageRef color_map_image;
+    bool is_need_redraw_color_map;
+    
+    CGImageRef brightness_picker_shadow_image;
 }
 
 // デフォルトカラーで初期化

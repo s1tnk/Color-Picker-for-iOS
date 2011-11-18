@@ -30,11 +30,10 @@
 
 @interface Hayashi311ColorPickerView()
 - (void)initColorCursor;
-- (void)LoopStart;
-- (void)Loop:(id)sender;
-- (void)LoopStop;
+- (void)Update:(id)sender;
 - (void)ClearInput;
 - (void)SetCurrentTouchPointInView:(UITouch *)touch;
+- (void)CreateCacheImage;
 @end
 
 @implementation Hayashi311ColorPickerView
@@ -76,7 +75,18 @@
         
         show_color_cursor_ = TRUE;
         
-        [self LoopStart];
+        //[self LoopStart];
+        
+        
+        gettimeofday(&last_update_time, NULL);
+        
+        time_interval.tv_sec = 0.0;
+        time_interval.tv_usec = 1000000.0/20.0;
+        is_need_redraw_color_map = TRUE;
+        color_map_image = NULL;
+        
+        [self CreateCacheImage];
+        
     }
     return self;
 }
@@ -114,31 +124,31 @@
     return rgb_color;
 }
 
-- (void)LoopStart{
-	if (!animating_)
-	{
-		display_link_ = [CADisplayLink displayLinkWithTarget:self selector:@selector(Loop:)];
-		[display_link_ setFrameInterval:2];
-		[display_link_ addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
-		animating_ = TRUE;
-	}
-}
-
-- (void)Loop:(id)sender{
-    
-    if (!show_color_cursor_) {
-        show_color_cursor_ = TRUE;
-        [self setNeedsDisplay];
+- (void)Update:(id)sender{
+    timeval now,diff;
+    gettimeofday(&now, NULL);
+    timersub(&now, &last_update_time, &diff);
+    if (timercmp(&diff, &time_interval, >)) {
+        last_update_time = now;
+    }else{
+        return;
     }
     
     if (is_dragging_ || is_drag_start_ || is_drag_end_ || is_tapped_) {
         CGPoint touch_position = active_touch_position_;
+        
+        if(!show_color_cursor_){
+            [self setNeedsDisplay];
+            show_color_cursor_ = TRUE;
+        }
+        
+        
         if (CGRectContainsPoint(color_map_frame_,touch_position)) {
             // カラーマップ
             
-            // ドラッグ中は表示させない
+            // ドラッグ中はカーソルを表示させない
             if (is_dragging_ && !is_drag_end_) {
-                show_color_cursor_ = FALSE;
+                //show_color_cursor_ = FALSE;
             }
             
             int pixel_count = color_map_frame_.size.height/pixel_size_;
@@ -174,23 +184,40 @@
                     current_hsv_color_.v = brightness_lower_limit_;
                 }
             }
+            is_need_redraw_color_map = TRUE;
             [self setNeedsDisplay];
         }
     }
     [self ClearInput];
 }
 
-- (void)LoopStop{
-	if (animating_)
-	{
-		[display_link_ invalidate];
-		display_link_ = nil;
-		animating_ = FALSE;
-	}
+- (void)CreateCacheImage
+{
+    // 影
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(brightness_picker_shadow_frame_.size.width,
+                                                      brightness_picker_shadow_frame_.size.height),
+                                           FALSE,
+                                           2.0f);
+    CGContextRef brightness_picker_shadow_context = UIGraphicsGetCurrentContext();
+    CGContextTranslateCTM(brightness_picker_shadow_context, 0, brightness_picker_shadow_frame_.size.height);
+    CGContextScaleCTM(brightness_picker_shadow_context, 1.0, -1.0);
+    
+    Hayashi311SetRoundedRectanglePath(brightness_picker_shadow_context, 
+                                      CGRectMake(0.0f, 0.0f,
+                                                 brightness_picker_shadow_frame_.size.width,
+                                                 brightness_picker_shadow_frame_.size.height), 5.0f);
+    CGContextSetLineWidth(brightness_picker_shadow_context, 10.0f);
+    CGContextSetShadow(brightness_picker_shadow_context, CGSizeMake(0.0f, 0.0f), 10.0f);
+    CGContextDrawPath(brightness_picker_shadow_context, kCGPathStroke);
+    
+    brightness_picker_shadow_image = CGBitmapContextCreateImage(brightness_picker_shadow_context);
+    UIGraphicsEndImageContext();
+    
 }
 
 - (void)drawRect:(CGRect)rect
 {
+    
     CGContextRef context = UIGraphicsGetCurrentContext();
     Hayashi311RGBColor current_rgb_color = [self RGBColor];
     
@@ -236,10 +263,7 @@
     CGGradientRelease(gradient);
     
     // 輝度の内側の影
-    Hayashi311SetRoundedRectanglePath(context, brightness_picker_shadow_frame_, 5.0f);
-    CGContextSetLineWidth(context, 10.0f);
-    CGContextSetShadow(context, CGSizeMake(0.0f, 0.0f), 10.0f);
-    CGContextDrawPath(context, kCGPathStroke);
+    CGContextDrawImage(context, brightness_picker_shadow_frame_, brightness_picker_shadow_image);
     
     // 現在の輝度を示す
     float pointer_size = 5.0f;
@@ -258,21 +282,36 @@
     
     CGContextRestoreGState(context);
     
+    
+     
+    
     /////////////////////////////////////////////////////////////////////////////
     //
     // カラーマップ
     //
     /////////////////////////////////////////////////////////////////////////////
     
+    // 広い面積に描画する時はCGContextAddRectよりCGContextAddLinesの方がパフォーマンスがいい(気がする)
     CGContextSaveGState(context);
     
     [[UIColor colorWithWhite:0.9f alpha:1.0f] set];
     //[[UIColor lightTextColor] set];
     //CGContextSetShadow(context, CGSizeMake(0.0f, 0.0f), 4.0f);
-    CGContextAddRect(context, color_map_side_frame_);
+    //CGContextAddRect(context, color_map_side_frame_);
+    CGPoint points[] = {
+                        color_map_side_frame_.origin.x,color_map_side_frame_.origin.y,
+                        color_map_side_frame_.origin.x + color_map_side_frame_.size.width,color_map_side_frame_.origin.y,
+                        color_map_side_frame_.origin.x + color_map_side_frame_.size.width,color_map_side_frame_.origin.y +color_map_side_frame_.size.height,
+                        color_map_side_frame_.origin.x,color_map_side_frame_.origin.y+color_map_side_frame_.size.height,
+                        color_map_side_frame_.origin.x,color_map_side_frame_.origin.y,
+    };
+    CGContextAddLines(context, points, 5);
     CGContextDrawPath(context, kCGPathStroke);
-    CGContextRestoreGState(context);
     
+    CGContextRestoreGState(context);
+     
+     
+    /*
     CGContextSaveGState(context);
     float height;
     int pixel_count = color_map_frame_.size.height/pixel_size_;
@@ -293,6 +332,54 @@
     }
     
     CGContextRestoreGState(context);
+    
+     */
+    
+    // コンテキストを生成してcolor_map_imageに流し込む
+    // UIGraphicsBeginImageContextWithOptionsで一時的に書き出すコンテキストの解像度を変更できる
+    // 低解像度のコンテキストに書き出した方がパフォーマンスが高いかもと思ったけども
+    // 書き出した画像をレンダリングする時に、拡大処理が走るのでかえって遅くなった
+    if (is_need_redraw_color_map) {
+        is_need_redraw_color_map = FALSE;
+        if (color_map_image != NULL) {
+            CGImageRelease(color_map_image);
+        }
+        UIGraphicsBeginImageContextWithOptions(CGSizeMake(color_map_frame_.size.width-1.0f, color_map_frame_.size.height-1.0f),
+                                               YES,
+                                               [[UIScreen mainScreen] scale]);
+        CGContextRef cmap_context = UIGraphicsGetCurrentContext();
+        CGContextTranslateCTM(cmap_context, 0, color_map_frame_.size.height);
+        CGContextScaleCTM(cmap_context, 1.0, -1.0);
+        
+        CGContextSetFillColorWithColor(cmap_context, [self backgroundColor].CGColor);
+        CGContextFillRect(cmap_context, CGRectMake(0.0f, 0.0f, color_map_frame_.size.width, color_map_frame_.size.height));
+        
+        CGContextSaveGState(cmap_context);
+        float height;
+        int pixel_count = color_map_frame_.size.height/pixel_size_;
+        
+        for (int j = 0; j < pixel_count; ++j) {
+            height =  pixel_size_ * j;
+            float pixel_y = (float)j/(pixel_count-1); // Y(彩度)は0.0f~1.0f
+            for (int i = 0; i < pixel_count; ++i) {
+                float pixel_x = (float)i/pixel_count; // X(色相)は1.0f=0.0fなので0.0f~0.95fの値をとるように
+                Hayashi311HSVColor pixel_hsv;
+                HSVColorAt(&pixel_hsv, pixel_x, pixel_y, saturation_upper_limit_, current_hsv_color_.v);
+                CGContextSetFillColorWithColor(cmap_context, [UIColor colorWithHue:pixel_hsv.h saturation:pixel_hsv.s brightness:pixel_hsv.v alpha:1.0f].CGColor);
+                
+                //CGContextAddRect(context, CGRectMake(pixel_size_*i+color_map_frame_.origin.x, height, pixel_size_-2.0f, pixel_size_-2.0f));
+                CGContextAddRect(cmap_context, CGRectMake(pixel_size_*i, height, pixel_size_-2.0f, pixel_size_-2.0f));
+                //CGContextAddRect(cmap_context, CGRectMake(pixel_size_*i, height, pixel_size_, pixel_size_));
+                CGContextDrawPath(cmap_context, kCGPathFill);
+            }
+        }
+        
+        CGContextRestoreGState(cmap_context);
+        color_map_image = CGBitmapContextCreateImage(cmap_context);
+        UIGraphicsEndImageContext();
+    }
+    CGContextDrawImage(context, CGRectMake(color_map_frame_.origin.x, color_map_frame_.origin.y, color_map_frame_.size.width-1.0f, color_map_frame_.size.height-1.0f), color_map_image);
+    
     
     /////////////////////////////////////////////////////////////////////////////
     //
@@ -369,6 +456,7 @@
         touch_start_position_.x = active_touch_position_.x;
         touch_start_position_.y = active_touch_position_.y;
     }
+    [self Update:self];
 }
 
 -(void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event{
@@ -381,6 +469,9 @@
         }
         [self SetCurrentTouchPointInView:[touches anyObject]];
     }
+    [self Update:self];
+    
+    [self setNeedsDisplay];
 }
 
 -(void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event{
@@ -388,14 +479,16 @@
     
     if (is_dragging_) {
         is_drag_end_ = TRUE;
-    }else{
+        
+        [NSTimer scheduledTimerWithTimeInterval:1.0/20.0 target:self selector:@selector(Update:) userInfo:nil repeats:FALSE];
+}else{
         if ([touch tapCount] == 1) {
             is_tapped_ = TRUE;
         }
     }
     is_dragging_ = FALSE;
     [self SetCurrentTouchPointInView:touch];
-    
+    [self Update:self];
 }
 
 - (void)SetCurrentTouchPointInView:(UITouch *)touch{
@@ -406,11 +499,16 @@
 }
 
 - (void)BeforeDealloc{
-    [self LoopStop];
+    //[self LoopStop];
 }
 
 
 - (void)dealloc{
+    if (color_map_image != NULL) {
+        CGImageRelease(color_map_image);
+    }
+    CGImageRelease(brightness_picker_shadow_image);
+    
     [super dealloc];
 }
 
